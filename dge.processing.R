@@ -15,7 +15,7 @@
 
 ## load relevant files
 # Design file
-FNdesign <- "/data/design.table.tsv"
+FNdesign <- "design.table.tsv"
 
 dfDesign <- read.delim(
     file = FNdesign,
@@ -24,7 +24,7 @@ dfDesign <- read.delim(
 )
 
 # Model file
-FNmodel <- "/data/model.table.tsv"
+FNmodel <- "model.table.tsv"
 
 dfModel <- read.delim(
     file = FNmodel,
@@ -33,7 +33,7 @@ dfModel <- read.delim(
 )
 
 # RSEM count file
-FNrsem <- "/data/rsem.merged.gene_counts.tsv"
+FNrsem <- "rsem.merged.gene_counts.tsv"
 
 dfRSEM <- read.delim(
     file = FNrsem,
@@ -55,7 +55,7 @@ mRSEM <- data.matrix(
 )
 
 # TPM file
-FNtpm <- "/data/rsem.merged.gene_tpm.tsv"
+FNtpm <- "rsem.merged.gene_tpm.tsv"
 
 dfTPM <- read.delim(
     file = FNtpm,
@@ -270,7 +270,7 @@ for (i in 1:nrow(dfDGE)){
 } ## End of DGE loop
 
 ## Write differential gene expression result table to file
-FNdgeOut <- "/data/DGEResulTtable.tsv"
+FNdgeOut <- "DGEResulTtable.tsv"
 write.table(
     DEseq2contrastTable,
     FNdgeOut,
