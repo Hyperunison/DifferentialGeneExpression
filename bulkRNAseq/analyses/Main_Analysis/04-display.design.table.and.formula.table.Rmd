@@ -1,0 +1,92 @@
+<!-- Set PArameters Module -->
+<!-- Set the chnkPrefix to make all chunks unique in the overall folder -->
+```{r partC_design_model_init, echo=FALSE, eval=TRUE, warning=FALSE}
+chnkPrefix <- "B4.design.and.formula.table."
+VersionPdfExt <- VersionPdfExt <- paste0(".",chnkPrefix,"V", gsub("-", "", Sys.Date()), ".pdf")
+
+figCap = paste0(
+    "**Table ",
+    tableCount,
+    ":** Design table for this experiment outlining original file names, sample names and group definitions for differential gene expression analysis."
+)
+
+tableCount <- tableCount + 1
+```
+
+# Parameter Tables
+## Display Design File
+```{r designFile, echo=TRUE, eval=TRUE, warning=FALSE, fig.cap=figCap}
+
+selVec <- c(
+    names(dfDesign)[grep('sampleID', names(dfDesign))],
+    names(dfDesign)[grep('original.sample.name', names(dfDesign))],
+    names(dfDesign)[grep('sample.id', names(dfDesign))],
+    names(dfDesign)[grep('^sample.group$', names(dfDesign))],
+    names(dfDesign)[grep('^dataseries$', names(dfDesign))],
+    names(dfDesign)[grep('^f_', names(dfDesign))],
+    names(dfDesign)[grep('comp_', names(dfDesign))],
+    names(dfDesign)[grep('LRT_', names(dfDesign))]
+    
+)
+
+
+selVec <- selVec[selVec %in% names(dfDesign)]    
+
+
+if (length(selVec) > 1){
+    dfDesign <- unique(dfDesign[,selVec])
+}
+    
+colnames <- gsub("_", " ", names(dfDesign))
+colnames <- gsub("comp", "DGE", colnames)
+colnames <- gsub("^f_", "Factor_", colnames)
+colnames <- gsub("[.]", " ", colnames)
+colnames <- gsub("original.sample.name", "original", colnames)
+
+
+
+DT::datatable(
+    dfDesign,
+    colnames = colnames,
+    rownames = FALSE,
+    options = list(
+        initComplete = htmlwidgets::JS(
+            "function(settings, json) {",
+            "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
+            "}"
+        ) #,
+    #order = list(list(3, 'asc'), list(2, 'desc'))
+    )
+) 
+
+figCap2 = paste0(
+    "**Table ",
+    tableCount,
+    ":** Design table for this experiment outlining original file names, sample names and group definitions for differential gene expression analysis"
+)
+
+```
+
+
+## Display Formula Table
+```{r formulaFile, echo=TRUE, eval=TRUE, warning=FALSE, fig.cap=figCap2}
+
+
+if (nrow(dfModel) > 0){
+    DT::datatable(
+        dfModel,
+        #colnames = colnames,
+        rownames = FALSE,
+        options = list(
+            initComplete = htmlwidgets::JS(
+                "function(settings, json) {",
+                "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
+                "}"
+            ),
+        order = list(list(3, 'asc'), list(2, 'desc'))
+        )
+    ) 
+}
+
+```
+

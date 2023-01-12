@@ -1,0 +1,81 @@
+<!-- Set the chnkPrefix to make all chunks unique in the overall folder -->
+```{r, echo=FALSE, eval=TRUE, warning=FALSE}
+chnkPrefix <- "NS01-A1."
+VersionPdfExt <- VersionPdfExt <- paste0(".",chnkPrefix,"V", gsub("-", "", Sys.Date()), ".pdf")
+
+```
+
+<!-- In this part we collect project parameters and create a biolgic object -->
+
+```{r, echo=TRUE, eval=TRUE, warning=FALSE, results=F}
+
+###############################################################################
+## Differential gene expression module                                       ##
+
+# This module reads 
+#   * a design file
+#   * a model file 
+#   * a RSEM read count matrix (rnaseq pipeline output)
+
+# and produces the differential gene expression analyses specified in the 
+# design/model files. 
+
+# Outputs: DEseqw differential gene epxression output, written out as a text 
+# file. 
+
+
+## load relevant files
+# Design file
+FNdesign <- "/Users/boeings/Downloads/design.table.txt"
+
+dfDesign <- read.delim(
+    file = FNdesign,
+    sep = "\t",
+    stringsAsFactors = F
+)
+
+# Model file
+FNmodel <- "/Users/boeings/Downloads/model.table.txt"
+
+dfModel <- read.delim(
+    file = FNmodel,
+    sep = "\t",
+    stringsAsFactors = F
+)
+
+# RSEM count file
+FNrsem <- "/Users/boeings/Downloads/rsem.merged.gene_counts.tsv"
+
+dfRSEM <- read.delim(
+    file = FNrsem,
+    sep = "\t",
+    stringsAsFactors = F
+)
+
+# the count file needs to be made into an integer count matrix
+mRSEM <- dfRSEM
+row.names(mRSEM) <- mRSEM$gene_id
+mRSEM$gene_id <- NULL
+mRSEM$transcript_id.s. <- NULL
+
+# make sure it's integer, as required by DESeq2
+mRSEM <- data.matrix(
+    round(
+        mRSEM
+    )
+)
+
+# TPM file
+FNtpm <- "/Users/boeings/Downloads/rsem.merged.gene_tpm.tsv"
+
+dfTPM <- read.delim(
+    file = FNtpm,
+    sep = "\t",
+    stringsAsFactors = F
+)
+
+## Checks need to be added to makes sure that sample IDs in dfDesign, dfModel, dfTPM and mRSEM match. 
+
+
+```
+

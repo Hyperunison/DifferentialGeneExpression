@@ -1,0 +1,179 @@
+---
+output: 
+    html_document:
+        code_folding: hide
+        df_print: tibble
+        highlight: default
+        theme: paper
+        toc: true
+        toc_depth: 5
+        toc_float: true
+        css: src/style/style.css
+
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE}
+
+## this script is run by doing:
+# rmarkdown::render("Main_RNAseq_Analysis.Rmd", output_dir="html_local")
+
+###############################################################################
+## Set project parameters                                                    ##
+
+project_id <- "GSE78220"
+
+projectTitle <- "Test RNA-Seq GSE78220"
+projectSubtitle <- "This is a test project"
+
+projectAbstract <- "Here we can write a project abstract."
+
+projectAuthor <- "John Doe"
+
+projectDir <- paste0(getwd(), "/")
+
+workdir <- paste0(projectDir, "workdir/")
+
+if (!dir.exists(workdir)){
+    dir.create(workdir)
+}
+
+htmlDir <- paste0(projectDir, "html_local/")
+
+if (!dir.exists(htmlDir)){
+    dir.create(htmlDir)
+}
+
+tableDir <- paste0(htmlDir, "report_tables/")
+
+if (!dir.exists(tableDir)){
+    dir.create(tableDir)
+}
+
+figDir <- paste0(htmlDir, "report_figures/")
+
+if (!dir.exists(figDir)){
+    dir.create(figDir)
+}
+
+figureCount <- 1
+
+tableCount <- 1
+
+primaryAlignmentGeneID <- "gene_id"
+
+
+## Done                                                                      ##
+###############################################################################
+
+###############################################################################
+##                                                                           ##
+
+# R version should be 4.0.3 or higher
+
+## Install renv package manager
+
+## This is deactivated for now, to ease the setup phase
+# if (!require("remotes")){
+#   install.packages("remotes")
+# }
+# 
+# 
+# if (!require("renv")){
+#   remotes::install_github("rstudio/renv")
+# }
+# 
+# 
+# if (!file.exists("renv.lock")){
+#     renv::init()
+# } else {
+#     renv::restore(prompt = FALSE)
+# }
+
+
+## Done                                                                      ##
+###############################################################################
+
+
+###############################################################################
+## Set the environment                                                       ##
+
+## set up renv environment
+# if (!file.exists("renv.lock")){
+#     renv::init(
+#     )
+# } else {
+#     renv::restore(
+#         #project = "../../",
+#         prompt=FALSE
+#     )
+# }
+
+
+## Done                                                                      ##
+###############################################################################
+
+
+###############################################################################
+## Set knitr options                                                         ##
+
+knitr::opts_chunk$set(
+    tidy = F,
+    tidy.opts = list(width.cutoff = 120),
+    message = FALSE,
+    warning = FALSE,
+    #dev="png"
+    dev = "png", dev.args = list(type = "cairo-png"),
+    fig.width=7,  # default setting is 7 
+    fig.height=5,  # default setting is 5
+    fig.retina=1  # default setting is 1
+    #fig.path = "images/"
+)
+
+##                                                                           ##
+###############################################################################
+```
+
+
+<!-- Essential: Load Obio Data Object ---------------------------------------->
+```{r child = '01-load.relevant.tables.Rmd', eval=TRUE}
+```
+
+
+<!-- Essential: Load Obio Data Object ---------------------------------------->
+```{r child = '02A-do.DESeq2.differential.gene.expression.analysis.Rmd', eval=TRUE}
+
+```
+
+
+
+<!-- Essential: Load Obio Data Object ---------------------------------------->
+```{r child = '04-display.design.table.and.formula.table.Rmd', eval=TRUE}
+
+```
+
+
+
+
+
+## Documentation
+```{r documentation, eval=TRUE, echo=F, results=T, error=F}
+#renv::snapshot(prompt=FALSE)
+
+print(paste0("Projectfolder: ", getwd()))
+print(paste0("Project ID: ", project_id))
+
+sessionInfo()
+```
+
+---
+title: "`r projectTitle`"
+subtitle:  "`r projectSubtitle`"
+author: "`r projectAuthor`"
+date: 'Compiled: `r format(Sys.Date(), "%B %d, %Y")`'
+
+abstract: |
+    "`r projectAbstract`"
+
+
+---
