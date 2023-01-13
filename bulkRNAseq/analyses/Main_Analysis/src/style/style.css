@@ -7,15 +7,27 @@
     display: block;
     height: 100px;
     margin: 2em 20px 40px 20px;
-    background-image: url("src/images/logo.ico");
+    background-image: url("src/images/logo.svg");
     background-size: contain;
     background-position: center center;
     background-repeat: no-repeat;
 }
 
-.list-group-item.active, .list-group-item.active:focus, .list-group-item.active:hover {
-    background-color: #009900;
+#TOC {
+    background: #0f2111;
+
+}
+
+
+thead {
+    background: #0f2111 !important;
     color: white;
+
+}
+
+.list-group-item.active, .list-group-item.active:focus, .list-group-item.active:hover {
+    background-color: rgb(215, 236, 226);
+    color: black;
 }
 
 .nav-pills > li.active > a, .nav-pills > li.active > a:focus {
