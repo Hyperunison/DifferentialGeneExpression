@@ -22,6 +22,8 @@ always_allow_html: yes
 ## Set project parameters                                                    ##
 
 project_id <- "GSE78220"
+primaryAlignmentGeneID <- "gene_id"
+NtopGenes <- 500
 
 projectTitle <- "Test RNA-Seq GSE78220"
 projectSubtitle <- "This is a test project"
@@ -60,7 +62,7 @@ figureCount <- 1
 
 tableCount <- 1
 
-primaryAlignmentGeneID <- "gene_id"
+
 
 
 ## Done                                                                      ##
@@ -139,24 +141,30 @@ knitr::opts_chunk$set(
 ```{r child = '01-load.relevant.tables.Rmd', eval=TRUE}
 ```
 
+<!-- Essential: Load Obio Data Object ---------------------------------------->
+```{r child = '021A-estimate.variance.DESeq2.Rmd', eval=TRUE}
+```
 
 <!-- Essential: Load Obio Data Object ---------------------------------------->
 ```{r child = '02A-do.DESeq2.differential.gene.expression.analysis.Rmd', eval=TRUE}
-
 ```
-
-
 
 <!-- Essential: Load Obio Data Object ---------------------------------------->
 ```{r child = '04-display.design.table.and.formula.table.Rmd', eval=TRUE}
+```
 
+<!-- Essential: Load Obio Data Object ---------------------------------------->
+```{r child = '06-plot.sample.dendrogram.Rmd', eval=TRUE}
+```
+
+<!-- PCA Analysis-------------------- ---------------------------------------->
+```{r child = '07-pca.analysis.Rmd', eval=TRUE}
 ```
 
 
 
 
-
-## Documentation
+# Documentation
 ```{r documentation, eval=TRUE, echo=F, results=T, error=F}
 #renv::snapshot(prompt=FALSE)
 
