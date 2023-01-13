@@ -458,15 +458,15 @@ chnkVec <- c(
 ## Done                                                                      ##
 ###############################################################################
 
-
-
-
-
-
-
+if (length(plotList) > 2){
+    tabVar <- ".tabset .tabset-fade .tabset-dropdown"
+} else {
+    tabVar <- ".tabset .tabset-fade .tabset-pills"
+}
 ```
 
-# Principal Component Analysis (PCA) 
+
+# Principal Component Analysis (PCA) {`r tabVar`}
 
 A birds eye view of your data can be obtained by looking at the results of the principal component analysis (PCA). The principal component analysis looks at your count dataset as a whole and determines how 'close' two samples are in terms of overall data structure. First of all, you want your replicated to cluster together. After that, you will be able to determine how different various sets of sample groups are.
 
