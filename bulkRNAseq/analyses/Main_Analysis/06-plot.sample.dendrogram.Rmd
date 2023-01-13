@@ -1,0 +1,199 @@
+<!-- Set PArameters Module -->
+<!-- Set the chnkPrefix to make all chunks unique in the overall folder -->
+```{r, echo=FALSE, eval=TRUE, warning=FALSE}
+chnkPrefix <- "B6."
+VersionPdfExt <- VersionPdfExt <- paste0(".",chnkPrefix,"V", gsub("-", "", Sys.Date()), ".pdf")
+
+```
+
+
+```{r, echo=T, eval=TRUE, warning=FALSE, results=F}
+chnkVec <- as.vector(NULL, mode = "character")
+plotList <- list()
+
+
+###############################################################################
+## Create Clusterdendrogram                                                  ##
+tag <- paste0("Clusterdendrogram")
+
+colSelVec <- c(
+    primaryAlignmentGeneID,
+    dfDesign$sample.id[dfDesign$sample.id %in% names(dfTPM)]
+)
+
+
+
+
+geneSelVec <- Ntop4pcaGeneSelection
+geneSelVec <- geneSelVec[geneSelVec != duplicated(geneSelVec)]
+
+dfData <- unique(dfTPM[, colSelVec])
+dfData <- dfData[dfData[,primaryAlignmentGeneID] %in% geneSelVec, ]
+
+row.names(dfData) <- dfData[,primaryAlignmentGeneID]
+dfData[,primaryAlignmentGeneID] <- NULL
+names(dfData) <- gsub("norm_counts_", "", names(dfData))
+names(dfData) <- gsub("_TPM", "", names(dfData))
+
+
+
+
+
+c <- cor(as.matrix(dfData), method="pearson")
+d <- as.dist(1-c)
+hr <- hclust(d, method = "ward.D", members=NULL)
+
+plotList[[tag]] <- ggdendro::ggdendrogram(
+    hr, 
+    rotate = TRUE, 
+    size = 4, 
+    theme_dendro = FALSE, 
+    color = "tomato"
+    ) + ggplot2::theme_bw(
+    ) +  ggplot2::theme(
+        axis.text.y   = ggplot2::element_text(size=8),
+        axis.text.x   = ggplot2::element_text(size=8),
+        axis.title.y  = ggplot2::element_text(size=8),
+        axis.title.x  = ggplot2::element_text(size=8),
+        axis.line = ggplot2::element_line(colour = "black"),
+        panel.border = ggplot2::element_rect(colour = "black", fill=NA, size=1),
+        plot.title = ggplot2::element_text(hjust = 0.5, size = 12)
+    )
+
+FNbase <- paste0(tag, VersionPdfExt)
+FN <- paste0(figDir, FNbase)
+FNrel <- paste0("report_figures/", FNbase)
+    
+pdf(FN)
+    print(plotList[[tag]])
+dev.off()
+##                                                                       ##
+###########################################################################
+    
+figCap <- paste0(
+    '**Figure ',
+    figureCount,
+    'Sample Dendrogram:**  Download a pdf of this figure <a href="',FNrel,'" target="_blank">here</a>.'
+    
+)
+ 
+figureCount <- figureCount + 1
+    
+NewChnk <- paste0(
+    paste0(
+        "## Cluster Dendrogram \n"
+    ),
+    "\n```{r SampleDendrogram, results='asis', echo=F, eval=TRUE, warning=FALSE, fig.cap='",figCap,"'}\n",
+        "\n",
+        "\n print(plotList[['",tag,"']])",
+            "\n cat(  '\n')",
+            "\n\n\n```\n"   
+)
+
+chnkVec <- c(
+    chnkVec,
+    NewChnk
+)
+
+
+
+## Done creating clusterdendrogram                                           ##
+###############################################################################
+
+
+###########################################################################
+## Add Coefficient of variation plot                                     ##
+
+if (exists("dfRv")){
+    tag <- "CoVar_Plot"
+    
+    figureCol = "DEseq2RV"
+    dfDat <- unique(
+        dfRv[,c( primaryAlignmentGeneID, "DEseq2RV", "CoVar")]
+    )
+    dfDat[["Var"]] <- dfDat[,figureCol]
+    dfDat <- dfDat[order(dfDat$Var, decreasing = TRUE),]
+
+    dfDat <- dfDat[dfDat$Var > 0, ]
+    dfDat[["CoVarOrder"]] <- 1:nrow(dfDat)
+    
+    
+
+    if (!exists("NtopGene")){
+         NtopGene <- length(Ntop4pcaGeneSelection)
+    }
+
+    plotList[[tag]] <- ggplot2::ggplot(
+    data=dfDat,
+    ggplot2::aes(x=CoVarOrder, y=Var)
+) + ggplot2::geom_line( ) + ggplot2::geom_vline(xintercept = NtopGene, col="red"
+) +  ggplot2::theme_bw() + ggplot2::theme(
+    axis.text.y   = ggplot2::element_text(size=8),
+    axis.text.x   = ggplot2::element_text(size=8),
+    axis.title.y  = ggplot2::element_text(size=8),
+    axis.title.x  = ggplot2::element_text(size=8),
+    axis.line = ggplot2::element_line(colour = "black"),
+    panel.border = ggplot2::element_rect(colour = "black", fill=NA, size=1),
+    plot.title = ggplot2::element_text(hjust = 0.5, size = 12)
+) + ggplot2::labs(title = paste0("Variation Seen Across all Genes")
+)
+
+    ###########################################################################
+    ## Save plot to file                                                     ##
+    FNbase <- paste0("CoVar", VersionPdfExt)
+    FN <- paste0(figDir, FNbase)
+    FNrel <- paste0("report_figures/", FNbase)
+
+    pdf(FN)
+        print(plotList[[tag]])
+    dev.off()
+    ##                                                                       ##
+    ###########################################################################
+
+    # link <- paste0(
+    #           'An interactive version of this figure can be found ',
+    #           '<a href="https://', urlString,'/',Obio@projectDetailList$project_id,'/scatterplot?x_axis=CoVarOrder&y_axis=CoVar&headline=2D+Scatterplot" target="_blank">here</a>', '. ')  
+    link <- ""
+    
+    figLegend <- paste0(
+        '**Figure ', 
+        figureCount, 
+        ':** ',
+        ' Coefficient of variation per gene. The red line indicates the cut-off for the most variable genes in this experiment. The most variable genes are the basis for the PCA analysis and heatmap displays. Download a pdf of this figure <a href="',FNrel,'" target="_blank">here</a>. ',
+     link
+)
+    
+    
+
+    figureCount <- figureCount + 1
+
+    NewChnk <- paste0(
+        paste0("## Coefficient of Variation \n"),
+            "\n```{r CoVarPlot, results='asis', echo=F, eval=TRUE, warning=FALSE, fig.cap='",figLegend,"'}\n",
+            "\n",
+            "\n print(plotList[['",tag,"']])",
+            "\n cat(  '\n')",
+            "\n\n\n```\n"
+    )
+
+    chnkVec <- c(
+        chnkVec,
+        NewChnk
+    )
+
+
+}
+
+## Done adding coefficient of variation                                  ##
+###########################################################################
+if (length(plotList) > 2){
+    tabVar <- ".tabset .tabset-fade .tabset-dropdown"
+} else {
+    tabVar <- ".tabset .tabset-fade .tabset-pills"
+}
+```
+
+# Sample Characterization {`r tabVar`}
+```{r, echo=FALSE, eval=TRUE, warning=FALSE, results="asis"}
+cat(paste(knitr::knit(text = chnkVec, quiet = T), collapse = '\n'))
+```

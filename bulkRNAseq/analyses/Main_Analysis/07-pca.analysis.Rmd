@@ -1,0 +1,477 @@
+<!-- Set PArameters Module -->
+<!-- Set the chnkPrefix to make all chunks unique in the overall folder -->
+```{r, echo=FALSE, eval=TRUE, warning=FALSE}
+chnkPrefix <- "B.9.pca."
+VersionPdfExt <- VersionPdfExt <- paste0(".",chnkPrefix,"V", gsub("-", "", Sys.Date()), ".pdf")
+
+# library(gplots)
+# library(RColorBrewer)
+# library(lattice)
+# library(genefilter)
+# library(tidyr)
+# library(ggplot2)
+```
+
+```{r, echo=FALSE, eval=TRUE, warning=FALSE, results=F}
+
+# This procedure requires the variables
+# Ntop4pcaGeneSelection, project_id, primaryAlignmentGeneID, figDir, dfDesign
+
+## Do PCA
+
+#########################################################################
+## Create DESeq2 object                                                ##
+
+colData = unique(dfDesign[, c("sample.id", "sample.group")])
+        rownames(colData) = as.vector(colData$sample.id)
+        colData$sample.id <- NULL
+        colnames(colData)[1] = "condition"
+        colData$condition <- as.factor(colData$condition
+)
+
+dds <- DESeq2::DESeqDataSetFromMatrix(
+countData = mRSEM[,row.names(colData)],
+    colData   = colData,
+    design    = ~ condition
+)
+
+dds <- DESeq2::estimateSizeFactors(dds)
+
+if (length(unique(dfDesign$sample.id)) > 42) {
+    rld <- DESeq2::vst(dds)
+} else {
+    rld <- DESeq2::rlog(dds)
+}
+
+
+pca = prcomp(t(SummarizedExperiment::assay(rld)[Ntop4pcaGeneSelection, ]))
+
+PCApercentVar <- pca$sdev^2/sum(pca$sdev^2)
+
+## Add percent variation plot ##
+PercentVariation <- round(100*PCApercentVar,1)
+PCdimension <- paste0("PC", 1:length(PercentVariation))
+df <- data.frame(
+    PercentVariation,
+    PCdimension
+)
+df <- df[df$PercentVariation > 0,]
+
+
+## Adding gene annotations ##
+dfBase <- SummarizedExperiment::assay(rld)[Ntop4pcaGeneSelection, ]
+
+dfBase <- t(dfBase)
+pcaGenes = prcomp(scale(dfBase))
+
+
+
+df.design.pca <- unique(dfDesign[,c("sample.id", "sample.group")])
+df.pca = data.frame(pca$x)
+df.pca[["sample.id"]] <- row.names(df.pca)
+
+df.pca <- merge(
+df.design.pca,
+df.pca,
+by.x = "sample.id",
+by.y = "sample.id"
+)
+
+df.pca <- df.pca[order(df.pca$sample.id),]
+names(df.pca) <- gsub("[.]", "_", names(df.pca))
+
+dfPCA <- df.pca            
+
+
+```
+
+
+
+```{r, echo=TRUE, eval=TRUE, warning=FALSE, results="hide"}
+###############################################################################
+## Add PCA plot                                                              ##
+
+
+if (!exists("VersionPdfExt")){
+    VersionPdfExt <- paste0(".V", gsub("-", "", Sys.Date()), ".pdf")
+}
+
+
+
+chnkVec <- as.vector(NULL, mode = "character")
+plotList <- list()
+tag <- "PCAvariationPerDimension"
+
+## Use custom PCA colors if specified ##
+
+## Just in case we still have dots instead of underscores
+names(dfPCA) <- gsub("\\.", "_", names(dfPCA))
+pcaSampleGroups <- unique(sort(dfPCA$sample_group))
+
+## If sample.group colors are set use those, otherwise set default.
+pos <- grep("^sample.group_color$", names(dfDesign))
+
+if (length(pos) == 0){
+    ## Create default ##
+    sample.group <- unique(dfDesign$sample.group)
+    sample.group_color <- sample.group
+            #library(scales)
+    sample.group_color = scales::hue_pal()(length(sample.group_color))
+            #sample.group_color = c("#990000", "#009900")
+    
+    ## set sample group colors manually
+    
+    dfGroupColors <- unique(data.frame(sample.group, sample.group_color))
+    dfDesign <- merge(dfDesign, dfGroupColors, by.x = "sample.group", "sample.group")
+    
+}
+
+dfColor <- unique(
+        dfDesign[,c("sample.group", "sample.group_color")]
+)
+
+if (nrow(dfColor) == length(pcaSampleGroups)){
+  
+    namedColors <- dfColor$sample.group_color
+    names(namedColors) <- dfColor$sample.group
+  
+    plotList[[tag]] <- ggplot2::ggplot(
+        data = dfPCA,
+        ggplot2::aes(x=PC1, y=PC2, fill = sample_group)
+    ) + ggplot2::geom_vline(xintercept = 0, color = "grey", size=0.5
+    ) + ggplot2::geom_hline(yintercept = 0, color = "grey", size=0.5
+    ) + ggplot2::geom_point(
+        size=2,
+        shape = 21
+    ) + ggplot2::scale_fill_manual("Sample Groups", values = namedColors
+    )
+} else {
+    plotList[[tag]] <- ggplot2::ggplot(
+        data = dfPCA,
+        ggplot2::aes(x=PC1, y=PC2, fill = sample_group)
+    ) + ggplot2::geom_vline(xintercept = 0, color = "grey", size=0.5
+    ) + ggplot2::geom_hline(yintercept = 0, color = "grey", size=0.5
+    ) + ggplot2::geom_point(
+        size=2,
+        shape = 21
+    ) 
+}
+
+
+
+
+if (!is.null(PCApercentVar)){
+    plotList[[tag]] <- plotList[[tag]] + ggplot2::labs(
+        title = "PCA Plot", 
+        x = paste0("PC1 \n ",round(100* PCApercentVar[1]),"% variability explained"),
+        y = paste0("PC2 \n ",round(100* PCApercentVar[2]),"% variability explained")
+    )
+} else {
+    plotList[[tag]] <- plotList[[tag]] + ggplot2::labs(
+        title = "PCA Plot", 
+        x = paste0("PC1"),
+        y = paste0("PC2")
+    )
+}
+
+plotList[[tag]] <- plotList[[tag]] +  ggplot2::theme_bw() + ggplot2::theme(
+        axis.text.y   = ggplot2::element_text(size=8),
+        axis.text.x   = ggplot2::element_text(size=8),
+        axis.title.y  = ggplot2::element_text(size=12),
+        axis.title.x  = ggplot2::element_text(size=12),
+        axis.line = ggplot2::element_line(colour = "black"),
+        panel.border = ggplot2::element_rect(colour = "black", fill=NA, size=1),
+        plot.title = ggplot2::element_text(hjust = 0.5, size = 12)
+)
+
+
+###########################################################################
+## Save plot to file                                                     ##
+FNbase <- paste0("PCA12", VersionPdfExt)
+FN <- paste0(figDir, FNbase)
+FNrel <- paste0("report_figures/", FNbase)
+FNrelT <- paste0("report_tables/", FNbase)
+    
+pdf(FN)
+    print(plotList[[tag]])
+dev.off()
+##                                                                       ##
+###########################################################################
+    
+
+
+# link <- paste0('<a href="https://biologic.crick.ac.uk/',project_id,'/pca?x_axis=PC1&y_axis=PC2', '" target="_blank">here</a>')
+link <- ""
+
+figCap <- paste0(
+    "**Figure ",
+    figureCount,
+    ":** Variation in the first two PCA Dimensions. Download a pdf of this figure [here](", FNrel, "). ",
+    "Further PCA dimensions are available interacively ", link, ". " 
+)
+ 
+figureCount <- figureCount + 1
+    
+NewChnk <- paste0(
+paste0("## PCA_Plot \n"),
+            "\n```{r ReferencePCA1, results='asis', echo=F, eval=TRUE, warning=FALSE, fig.cap='",figCap,"'}\n",
+            "\n",
+            "\n print(plotList[['",tag,"']])",
+            "\n cat(  '\n')",
+            "\n\n\n```\n"   
+)
+
+chnkVec <- c(
+    chnkVec,
+    NewChnk
+)
+
+            
+
+## Done with PCA plot                                                        ##
+###############################################################################
+
+
+```
+
+
+```{r, echo=TRUE, eval=TRUE, warning=FALSE, results="asis", message=F}
+
+
+
+###############################################################################
+## Get PCA Loadings                                                          ##
+
+pcaGenes = prcomp(scale(t(dfBase)))
+
+dfPcaGenes = data.frame(pcaGenes$x)
+
+if (ncol(dfPcaGenes) > 10){
+    dfPcaGenes <- dfPcaGenes[,1:10]
+}
+
+dfPcaGenes[[ primaryAlignmentGeneID]] <- row.names(dfPcaGenes)
+
+
+dfLoad <- dfPcaGenes
+
+dfLoad[is.na(dfLoad)] <- 0
+
+names(dfLoad) <- gsub("^PC", "PCA_estimatePCA", names(dfLoad))
+
+## Make Loadings Plot ##
+## Plot ##
+selXY <- c("PCA_estimatePCA1", "PCA_estimatePCA2", primaryAlignmentGeneID)
+dfSel <- unique(dfLoad[,selXY])
+#row.names(dfSel) <- dfSel$gene
+dfSel[["highlight"]] <- ""
+dfSel[["cat"]] <- ""
+dfSel[["selX"]] <- ""
+dfSel[["selY"]] <- ""
+dfSel <- dfSel[order(dfSel[,selXY[1]], decreasing = FALSE), ]
+dfSel[1:15, "highlight"] <- "+"
+    
+## Use two standard deviations for enrichment ##
+twoSD <- 2*sd(dfSel[,selXY[1]])
+twoSDxLine <- 2*sd(dfSel[,selXY[1]])
+gSvec <- dfSel[dfSel[,selXY[1]] < -1* twoSD, primaryAlignmentGeneID]
+    
+
+dfSel <- dfSel[order(dfSel[,selXY[1]], decreasing = TRUE), ]
+dfSel[1:15, "highlight"] <- "+"
+gSvec <- dfSel[dfSel[,selXY[1]] >  twoSD, primaryAlignmentGeneID]
+    
+    
+    
+## Now dim 2
+dfSel <- dfSel[order(dfSel[,selXY[2]], decreasing = FALSE), ]
+dfSel[1:15, "highlight"] <- "+"
+
+twoSD <- 2*sd(dfSel[,selXY[2]])
+twoSDyLine <- 2*sd(dfSel[,selXY[2]])
+gSvec <- dfSel[dfSel[,selXY[2]] < -1* twoSD, primaryAlignmentGeneID]
+
+
+
+
+dfSel <- dfSel[order(dfSel[,selXY[2]], decreasing = TRUE), ]
+dfSel[1:15, "highlight"] <- "+"
+gSvec <- dfSel[dfSel[,selXY[2]] >  twoSD, primaryAlignmentGeneID]
+
+dfSel[["label"]] <- ""
+dfSel[dfSel$highlight == "+", "label"] <- dfSel[dfSel$highlight == "+", primaryAlignmentGeneID]
+
+## Done
+tag <- "PCA_Loadings"
+
+colVec <- c("grey", "black")
+names(colVec) <- c("", "Selected")
+
+plotList[[tag]] <- ggplot2::ggplot(data=dfSel, ggplot2::aes_string(x=selXY[1],y=selXY[2], label="label")
+) + ggplot2::geom_vline(xintercept = 0, color = "grey", size=0.5
+) + ggplot2::geom_hline(yintercept = 0, color = "grey", size=0.5
+) + ggplot2::geom_vline(xintercept = c(twoSDxLine, -1* twoSDxLine), color = "red", lty=2,size=0.5
+) + ggplot2::geom_hline(yintercept = c(twoSDyLine, -1* twoSDyLine), color = "red", lty=2,size=0.5
+) + ggplot2::geom_hline(yintercept = 0, color = "grey", size=0.5
+) + ggplot2::geom_point(col="black") + ggplot2::scale_color_manual(values=colVec
+#) + ggtitle(paste0("PCA - Cell Level")
+) + ggplot2::theme_bw(
+) +  ggplot2::theme(
+    #axis.text.y   = element_blank(), # element_text(size=8),
+    #axis.text.x   = element_blank(), #element_text(size=8),
+    #axis.title.y  = element_blank(), #element_text(size=8),
+    #axis.title.x  = element_blank(), #element_text(size=8),
+    axis.line = ggplot2::element_line(colour = "black"),
+    legend.position = "none",
+    panel.border = ggplot2::element_rect(colour = "black", fill=NA, size=1),
+    #plot.title = element_text(hjust = 0.5, size = 12)
+)  #+ guides(col = guide_legend(override.aes = list(shape = 16, size = legendDotSize)))
+
+#points <-  as.vector(unique(dfSel[dfSel$highlight=="+", geneIDcolumn]))
+#plotListGene[[tag]] <- LabelPoints(plot = plotListGene[[tag]], points =points, repel = TRUE, xnudge = 0, ynudge = 0)
+
+plotList[[tag]] <-  plotList[[tag]]  + ggrepel::geom_text_repel(size = 3)
+
+
+## Save to file ##
+FNbase <- paste0(tag, ".", selXY[1],".", selXY[2], VersionPdfExt)
+FN <- paste0(figDir, FNbase)
+FNrel <- paste0("report_figures/", FNbase)
+
+pdf(FN)
+    plot(plotList[[tag]])
+dev.off()
+
+# dim1 <- gsub("PC_", "", xVec[i])
+# dim2 <- gsub("PC_", "", yVec[i])
+# link <- paste0(
+#     '<a href="https://',urlString,'/',
+#     project_id,
+#     '/scatterplot?x_axis=contrast_P_PCA_estimatePCA1&y_axis=contrast_P_PCA_estimatePCA2&highlight_gene=&cat_id=ag_lab_categories__10',
+#     '" target="_blank">here</a>'
+# )
+
+link <- ""
+
+figCap <- paste0(
+    "**Figure, " ,figureCount,":**Gene-level PCA plot for dimensions ", selXY[1], " and ", selXY[2], ". ",
+    ". An interactive version of this figure can be found ", link, ". "
+)
+
+
+NewChnk <- paste0(
+    "## PCA_Loadings \n",
+    "\n```{r PCA_gene_level , results='asis', echo=F, eval=TRUE, warning=FALSE, fig.cap='",
+    figCap,"'}\n",
+    "\n",
+    "\n print(plotList[['",tag,"']])",
+    "\n cat(  '\n')",
+    "\n\n\n```\n"   
+)
+
+chnkVec <- c(
+    chnkVec,
+    NewChnk
+)
+
+## Done with genes                                                       ##
+###########################################################################
+figureCount <- figureCount + 1
+
+
+###############################################################################
+## Add percent variaton per dimension plot                                   ##
+
+tag <- "Variation_Per_PCA_Dimension"
+    
+## Add percent variation plot ##
+PercentVariation <- round(100*PCApercentVar,1)
+PCdimension <- paste0("PC", 1:length(PercentVariation))  
+    
+df <- data.frame(
+    PercentVariation,
+    PCdimension
+)
+
+legendString <- ""
+if (nrow(df) > 20){
+    legendString <- paste0("Only the first 20 principal components out of ",nrow(df)," are shown in the figure. ")
+    df <- df[1:20,]
+    PCdimension <- PCdimension[1:20]
+    
+}
+
+df <- df[df$PercentVariation > 0,]
+
+plotList[[tag]] <- ggplot2::ggplot(
+    df, 
+    ggplot2::aes(PCdimension, PercentVariation)
+) + ggplot2::geom_col(
+) + ggplot2::scale_x_discrete(limits=PCdimension) +  ggplot2::theme(
+    axis.text.y   = ggplot2::element_text(size=8),
+    axis.text.x   = ggplot2::element_text(size=8),
+    axis.title.y  = ggplot2::element_text(size=8),
+    axis.title.x  = ggplot2::element_text(size=8),
+    axis.line = ggplot2::element_line(colour = "black"),
+    panel.border = ggplot2::element_rect(colour = "black", fill=NA, size=1),
+    plot.title = ggplot2::element_text(hjust = 0.5, size = 12)
+) + ggplot2::theme_bw()
+   
+###########################################################################
+## Save plot to file                                                     ##
+FNbase <- paste0(tag, VersionPdfExt)
+FN <- paste0(figDir, FNbase)
+FNrel <- paste0("report_figures/", FNbase)
+    
+pdf(FN)
+    plotList[[tag]]
+dev.off()
+##                                                                       ##
+###########################################################################
+    
+figCap <- paste0(
+    '**Figure ',
+    figureCount,
+    ':** Percent of variaton explained by each principal component. ',
+    legendString,
+    'Download a pdf of this figure <a href="',FNrel,'" target="_blank">here</a>. '
+)
+ 
+figureCount <- figureCount + 1
+   
+NewChnk <- paste0(
+    "## Amount of variation explained by each PCA Dimension ",
+    "\n```{r, results='asis', echo=F, eval=TRUE, warning=FALSE, fig.cap='",figCap,"'}\n",
+    "\n",
+    "\n print(plotList[['",tag,"']])",
+    "\n cat(  '\n')",
+    "\n\n\n```\n"   
+)
+
+chnkVec <- c(
+        chnkVec,
+        NewChnk
+)
+       
+    
+     
+## Done                                                                      ##
+###############################################################################
+
+
+
+
+
+
+
+```
+
+# Principal Component Analysis (PCA) 
+
+A birds eye view of your data can be obtained by looking at the results of the principal component analysis (PCA). The principal component analysis looks at your count dataset as a whole and determines how 'close' two samples are in terms of overall data structure. First of all, you want your replicated to cluster together. After that, you will be able to determine how different various sets of sample groups are.
+
+A more detailed explanation on PCA is give in this [PCA video](https://www.youtube.com/watch?v=_UVHneBUBW0&feature=youtu.be).
+
+```{r, echo=FALSE, eval=TRUE, warning=FALSE, results="asis"}
+cat(paste(knitr::knit(text = chnkVec, quiet = T), collapse = '\n'))
+```

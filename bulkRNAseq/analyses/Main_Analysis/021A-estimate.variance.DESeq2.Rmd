@@ -1,0 +1,106 @@
+<!-- Set Parameters Module -->
+<!-- Set the chnkPrefix to make all chunks unique in the overall folder -->
+```{r, echo=FALSE, eval=TRUE, warning=FALSE}
+chnkPrefix <- "partB.set.parameters."
+VersionPdfExt <- VersionPdfExt <- paste0(".",chnkPrefix,"V", gsub("-", "", Sys.Date()), ".pdf")
+
+```
+
+
+# Estimate Variance
+
+
+```{r, echo=F, eval=T, warning=FALSE}
+
+#########################################################################
+## Create DESeq2 object                                                ##
+
+colData = unique(dfDesign[, c("sample.id", "sample.group")])
+        rownames(colData) = as.vector(colData$sample.id)
+        colData$sample.id <- NULL
+        colnames(colData)[1] = "condition"
+        colData$condition <- as.factor(colData$condition
+)
+
+dds <- DESeq2::DESeqDataSetFromMatrix(
+countData = mRSEM[,row.names(colData)],
+    colData   = colData,
+    design    = ~ condition
+)
+
+dds <- DESeq2::estimateSizeFactors(dds)
+
+dfNormCounts <- data.frame(
+    round(
+        DESeq2::counts(
+            dds, normalized = TRUE
+        )
+    )
+)
+    
+
+#########################################################################
+## Determine DESEQ2 variation estimate                                 ##
+
+if (length(dfDesign$sample.id) > 42) {
+    rld <- DESeq2::vst( dds )
+} else {
+    rld <- DESeq2::rlog( dds )
+}
+
+#########################################################################
+## Create row variance df                                              ##
+
+# Rowvars definition https://www.rdocumentation.org/packages/metaMA/versions/3.1.2/topics/rowVars
+
+#########################################################################
+## Calculate coefficient of variation                                  ##
+dfCoVar <- dfNormCounts[rowSums(dfNormCounts) != 0, ]
+
+## Remove all zero rows ##
+
+
+dfCoVar["CoVar"]<- apply(
+    dfCoVar,
+    1,
+    function(x) sd(x)/mean(x)
+)
+
+dfCoVar[dfCoVar$CoVar == Inf, "CoVar"] <- max(dfCoVar[dfCoVar$CoVar < Inf ,"CoVar"])
+dfCoVar[[primaryAlignmentGeneID]] <- row.names(dfCoVar)
+dfCoVar <- dfCoVar[,c(primaryAlignmentGeneID, "CoVar")]
+dfRv <- dfCoVar
+
+dfRv[is.na(dfRv)] <- 0
+
+dfRv <- dfRv[order(dfRv$CoVar, decreasing = T),]
+
+## Done calculating coefficietn of variation                           ##
+#########################################################################
+
+
+DEseq2RV <- matrixStats::rowVars(SummarizedExperiment::assay(rld))
+assign(primaryAlignmentGeneID, names(rld))
+
+dfRvAdd <- data.frame(
+    DEseq2RV,
+    get(primaryAlignmentGeneID)
+)
+names(dfRvAdd) <- c("DEseq2RV", primaryAlignmentGeneID)
+
+dfRv <- merge(
+    dfRv,
+    dfRvAdd,
+    by.x = primaryAlignmentGeneID,
+    by.y = primaryAlignmentGeneID
+)
+
+## Order by variation
+dfRv <- dfRv[order(dfRv$DEseq2RV, decreasing = TRUE),]
+# dfSel <- dfSel[order(dfSel$CoVar, decreasing = TRUE),]
+Ntop4pcaGeneSelection <- as.vector(
+    dfRv[1:NtopGenes,primaryAlignmentGeneID]
+)
+
+
+```
