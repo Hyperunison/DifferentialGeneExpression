@@ -1,0 +1,424 @@
+<!-- Set PArameters Module -->
+<!-- Set the chnkPrefix to make all chunks unique in the overall folder -->
+```{r, echo=FALSE, eval=TRUE, warning=FALSE}
+chnkPrefix <- "B11.DGE."
+VersionPdfExt <- VersionPdfExt <- paste0(".",chnkPrefix,"V", gsub("-", "", Sys.Date()), ".pdf")
+
+```
+
+
+```{r, echo=FALSE, eval=TRUE, warning=FALSE, results=F}
+
+
+
+## Variables that need to exist
+# Ntop4pcaGeneSelection 
+# project_id 
+# figDir 
+# dfDesign
+
+```
+
+
+```{r, echo=T, eval=TRUE, warning=FALSE, results="asis"}
+## Make heatmap gene list
+logFCselections <- names(DEseq2contrastTable)[grep("_logFC_", names(DEseq2contrastTable))]
+padjSelections <- gsub("_logFC_", "_padj_", logFCselections)
+
+dfSelections <- data.frame(logFCselections, padjSelections)
+dfSelections <- dfSelections[dfSelections[,"padjSelections"] %in% names(DEseq2contrastTable),]
+
+
+
+if (nrow(dfSelections) > 2){
+    tabVar <- ".tabset .tabset-fade .tabset-dropdown"
+} else {
+    tabVar <- ".tabset .tabset-fade .tabset-pills"
+}
+
+```
+
+
+```{r, echo=TRUE, eval=TRUE, warning=FALSE, results=F}
+
+dfMainData <- DEseq2contrastTable
+
+if (!exists("sdCutOff")){
+  sdCutOff <- 2  
+}
+
+chnkVec <- as.vector(NULL, mode = "character")
+
+MAplotList <- list()
+VplotList <- list()
+
+## Create dfMAplots ##
+contrastSel <- c(
+  names(dfMainData)[grep("contrast_[0-9]{1,2}", names(dfMainData))],
+  names(dfMainData)[grep("contrast_D[0-9]{1,2}", names(dfMainData))]
+)
+MAselVec <- c(
+    contrastSel[grep("lg2BaseMean", contrastSel)],
+    contrastSel[grep("logFC", contrastSel)]
+)
+
+VolcanoSelVec <- c(
+    contrastSel[grep("logFC", contrastSel)],
+    contrastSel[grep("lg10p", contrastSel)]
+)
+
+contrastVec <- as.vector(sapply(
+    contrastSel[grep("logFC", contrastSel)],
+    function(x) unlist(strsplit(x, "logFC_"))[2]
+))
+
+
+###############################################################################
+## Make MA plot function                                                     ##
+
+
+makeMAplot <- function(
+    dfPlotData,
+    geneIDcolumn,
+    topNgenes = 5,
+    dotsize = 1,
+    legendDotSize = 5,
+    sdCutOff = 1
+){
+    headline <- names(dfPlotData)[grep("logFC", names(dfPlotData))]
+    headline <- unlist(strsplit(headline, "logFC_"))[2]
+    
+    names(dfPlotData) <- gsub("contrast_[0-9]{1,2}_", "", names(dfPlotData))
+    
+    logFCcolName <- names(dfPlotData)[grep("logFC", names(dfPlotData))]
+    padjColName <- names(dfPlotData)[grep("padj", names(dfPlotData))]
+    lg2BaseMeanColName <- names(dfPlotData)[grep("lg2BaseMean", names(dfPlotData))]
+    
+    
+    ## Now let's get these data columns out of the main data table.
+    dfPlotData <- dfPlotData[dfPlotData[,lg2BaseMeanColName] > 0, ]
+    
+    
+    ## For plotting we are using the R-package ggplot. This is a widely used, comprehensive package to make beautiful plots. More information on that here: https://ggplot2.tidyverse.org/
+    
+    library(ggplot2)
+    
+    ## Let's add an example for custom coloring here. We are going to highlight the most variable genes in this scatterplot. To do that, we need to add a color column to the plot data dataframe.
+    
+    ## Now let's color by significantly up-regulated genes in red, and significantly downregulated genes in blue
+    
+    dfPlotData[["color"]] <- "NS"
+    dfPlotData[dfPlotData[, logFCcolName] > 0 & dfPlotData[, padjColName] < 0.05, "color"] <-  "Up"
+    
+    dfPlotData[dfPlotData[, logFCcolName] < 0 & dfPlotData[, padjColName] < 0.05, "color"] <-  "Down"
+    
+    ## Re-order dfPlotData for better results
+    
+    ## Let's have a look at the color vector
+    
+    
+    colorVec <- c("blue", "red","black")
+    
+    names(colorVec) <- c("Down", "Up", "NS")
+    
+    
+    ## And here is the resulting color vector
+    colorVec <- colorVec[names(colorVec) %in% dfPlotData$color]
+    
+    dfPlotData$color <- factor(dfPlotData$color, levels = names(colorVec))
+    dfPlotData <- dfPlotData[order(dfPlotData$color, decreasing = F), ]
+    
+    ## Now let's also add a label for the 10 most significantly up- and down-regulated genes.This number can be changed in the variable Nsel. Here we use the R package ggrepel.
+    
+    library(ggrepel)
+    
+    ## Let's order the data frame by log-fold change
+    dfPlotData <- dfPlotData[order(dfPlotData[,logFCcolName], decreasing = T), ]
+    topGenes <- as.vector(dfPlotData[1:topNgenes,geneIDcolumn])
+    
+    dfPlotData <- dfPlotData[order(dfPlotData[,logFCcolName], decreasing = F), ]
+    bottomGenes <- as.vector(dfPlotData[1:topNgenes,geneIDcolumn])
+    
+    dfPlotData[["label"]] <- ""
+    dfPlotData[dfPlotData[,geneIDcolumn] %in% c(topGenes, bottomGenes), "label"] <- dfPlotData[dfPlotData[,geneIDcolumn] %in% c(topGenes, bottomGenes), geneIDcolumn]
+    
+    yScaleMax <- max(abs(dfPlotData[,logFCcolName]))
+    
+    lgFCsel <- sdCutOff * sd(dfPlotData[, logFCcolName])
+    ## Now let's first make the MA-plot without lables
+    
+    plotNoLabels <- ggplot(
+        data = dfPlotData, 
+        aes_string(x=lg2BaseMeanColName, y=logFCcolName, color = "color", label = "label")
+    ) + geom_hline(yintercept = 0, color = "black", size=0.5
+    ) + geom_hline(yintercept = c(-1*lgFCsel,lgFCsel), color = "grey", size=0.5, linetype = 2               
+    ) + geom_point( shape=16, size = dotsize
+    ) + scale_colour_manual(name = "Significant" ,values = colorVec
+    ) + theme_bw(
+    )  +  theme(
+        axis.text.y   = element_text(size=8),
+        axis.text.x   = element_text(size=8),
+        axis.title.y  = element_text(size=8),
+        axis.title.x  = element_text(size=8),
+        axis.line = element_line(colour = "black"),
+        panel.border = element_rect(colour = "black", fill=NA, size=1),
+        plot.title = element_text(hjust = 0.5, size = 12)
+    ) + ylim(-1*yScaleMax, yScaleMax
+    ) + ggtitle(paste0("MA-Plot ", contrastVec[i])            
+    ) + xlab(gsub("_", " ", logFCcolName)
+    ) + ylab(gsub("_", " ", logFCcolName)            
+    ) + guides(col = guide_legend(override.aes = list(shape = 16, size = legendDotSize))
+    ) 
+         
+    
+    ## And now let's add the labels:
+    plotWithLabels <- plotNoLabels + geom_text_repel(size = 3)
+    
+    return(plotWithLabels)  
+}
+
+## End Make MA plot function                                                 ##
+###############################################################################
+
+###############################################################################
+## Make Volcanoplot                                                          ##
+makeVolcanoPlot <- function(
+    dfPlotData,
+    geneIDcolumn,
+    topNgenes = 5,
+    dotsize = 1,
+    legendDotSize = 5,
+    sdCutOff = 1
+){
+    headline <- names(dfPlotData)[grep("logFC", names(dfPlotData))]
+    headline <- unlist(strsplit(headline, "logFC_"))[2]
+    
+    names(dfPlotData) <- gsub("contrast_[0-9]{1,2}_", "", names(dfPlotData))
+    
+    logFCcolName <- names(dfPlotData)[grep("logFC", names(dfPlotData))]
+    lg10pColName <- names(dfPlotData)[grep("lg10p", names(dfPlotData))]
+    padjColName <- names(dfPlotData)[grep("padj", names(dfPlotData))]
+    
+    ## Now let's get these data columns out of the main data table.
+    dfPlotData <- dfPlotData[dfPlotData[,logFCcolName] != 0, ]
+    
+    ## Determine logFC cut-off for the Volcano Plot ##
+    lgFCsel <- sdCutOff * sd(dfPlotData[, logFCcolName])
+    
+    dfPlotData[["color"]] <- "NS"
+    dfPlotData[dfPlotData[, logFCcolName] > lgFCsel & dfPlotData[, padjColName] < 0.05, "color"] <-  "Up"
+    
+    dfPlotData[dfPlotData[, logFCcolName] < -1*lgFCsel & dfPlotData[, padjColName] < 0.05, "color"] <-  "Down"
+    
+    ## Re-order dfPlotData for better results
+    
+    ## Let's have a look at the color vector
+    
+    
+    colorVec <- c("blue", "red","black")
+    
+    names(colorVec) <- c("Down", "Up", "NS")
+    
+    
+    ## And here is the resulting color vector
+    colorVec <- colorVec[names(colorVec) %in% dfPlotData$color]
+    
+    dfPlotData$color <- factor(dfPlotData$color, levels = names(colorVec))
+    dfPlotData <- dfPlotData[order(dfPlotData$color, decreasing = F), ]
+    
+    ## And here is the resulting color vector
+    colorVec <- colorVec[names(colorVec) %in% dfPlotData$color]
+    
+    dfPlotData$color <- factor(dfPlotData$color, levels = names(colorVec))
+    dfPlotData <- dfPlotData[order(dfPlotData$color, decreasing = F), ]
+    
+    ## Now let's also add a label for the 10 most significantly up- and down-regulated genes.This number can be changed in the variable Nsel. Here we use the R package ggrepel.
+    
+    library(ggrepel)
+    
+    ## Let's order the data frame by log-fold change
+    dfPlotData <- dfPlotData[order(dfPlotData[,logFCcolName], decreasing = T), ]
+    topGenes <- as.vector(dfPlotData[1:topNgenes,geneIDcolumn])
+    
+    dfPlotData <- dfPlotData[order(dfPlotData[,logFCcolName], decreasing = F), ]
+    bottomGenes <- as.vector(dfPlotData[1:topNgenes,geneIDcolumn])
+    
+    dfPlotData[["label"]] <- ""
+    dfPlotData[dfPlotData[,geneIDcolumn] %in% c(topGenes, bottomGenes), "label"] <- dfPlotData[dfPlotData[,geneIDcolumn] %in% c(topGenes, bottomGenes), geneIDcolumn]
+    
+xMaxVal <- max(abs(dfPlotData[,logFCcolName]))
+    
+pVolcano <- ggplot(
+        data = dfPlotData, 
+        aes_string(x=logFCcolName, y=lg10pColName, color = "color",label = "label")
+    ) + geom_hline(yintercept = 0, color = "black", size=0.5
+    ) + geom_hline(yintercept = -1*log10(0.05), color = "grey", size=0.5, linetype = 2
+    ) + geom_vline(xintercept = 0, color = "black", size=0.5
+    ) + geom_vline(xintercept = c(-1*lgFCsel,lgFCsel), color = "grey", size=0.5, linetype = 2      ) + geom_point( shape=16, size = dotsize
+    ) + scale_colour_manual(name = "Variability" ,values = colorVec
+    
+    ) + theme_bw(
+    )  +  theme(
+        axis.text.y   = element_text(size=8),
+        axis.text.x   = element_text(size=8),
+        axis.title.y  = element_text(size=8),
+        axis.title.x  = element_text(size=8),
+        axis.line = element_line(colour = "black"),
+        panel.border = element_rect(colour = "black", fill=NA, size=1),
+        plot.title = element_text(hjust = 0.5, size = 12)
+    ) + xlim(-1*xMaxVal,xMaxVal
+    ) + ggtitle(paste0("Volcano Plot ", contrastVec[i]) 
+    ) + xlab(gsub("_", " ", logFCcolName)
+    ) + ylab(gsub("_", " ", lg10pColName)            
+    ) + guides(col = guide_legend(override.aes = list(shape = 16, size = legendDotSize))
+    ) 
+
+    plotVolcanoWithLabels <- pVolcano + geom_text_repel(size = 3)
+
+return(plotVolcanoWithLabels)
+}
+## Done Volcanoplot                                                          ##
+###############################################################################
+
+for (i in 1:length(contrastVec)){
+    ## Make MA-plot ##
+    contrastVec <- as.vector(sapply(
+    contrastSel[grep("logFC", contrastSel)],
+    function(x) unlist(strsplit(x, "logFC_"))[2]
+))
+    
+    selVec <- c(
+        geneIDcolumn,
+        names(dfMainData)[grep(paste0("_", contrastVec[i], "$"), names(dfMainData))]
+    )
+    
+    dfPlotData <- unique(dfMainData[,selVec])
+    
+    tagMA <- paste0("MA_", contrastVec[i])
+    
+    MAplotList[[tagMA]] <- makeMAplot(
+        dfPlotData = dfPlotData,
+        geneIDcolumn = geneIDcolumn,
+        topNgenes = 5,
+        dotsize = 1,
+        legendDotSize = 5,
+        sdCutOff = sdCutOff
+    )
+    
+    ###########################################################################
+    ## Save plot to file                                                     ##
+    FNbase <- paste0(contrastVec[i], ".MA.plot", VersionPdfExt)
+    FN <- paste0(figDir, FNbase)
+    FNrel <- paste0("report_figures/", FNbase)
+    
+    pdf(FN)
+        print(MAplotList[[tagMA]])
+    dev.off()
+    ##                                                                       ##
+    ###########################################################################
+    
+    selLg2BM <- selVec[grep("lg2BaseMean_", names(dfPlotData))]
+    selLogFC <- selVec[grep("_logFC_", names(dfPlotData))]
+    
+     
+    xAxis <- selLg2BM[grep(contrastVec[i], selLg2BM)]
+    yAxis <- selLogFC[grep(contrastVec[i], selLogFC)]
+    
+    #link1 <- paste0('<a href="https://biologic.crick.ac.uk/',project_id,'/scatterplot?x_axis=',xAxis,'&y_axis=',yAxis,'&cat_id=ag_lab_categories__10" target="_blank">here</a>.')
+    link1 <- ""
+    
+    
+    figCap <- paste0(
+        '**Figure ',
+        figureCount,
+        'A:** Volcano and MA-plot Plot ',gsub('MA_', '', tagMA),'. ',
+        'Download a pdf of this figure <a href="',FNrel,'" target="_blank">here</a>. ' 
+    )
+ 
+    figureCount <- figureCount + 1
+   
+    NewChnk <- paste0(
+            "## MA-Plot ",contrastVec[i],
+            "\n```{r ",contrastVec[i],", results='asis', echo=F, eval=TRUE, warning=FALSE, fig.cap='",figCap,"'}\n",
+            "\n",
+            "\n print(MAplotList[['",tagMA,"']])",
+            "\n cat(  '\n')",
+            "\n\n\n```\n"   
+    )
+
+    chnkVec <- c(
+        chnkVec,
+        NewChnk
+    )
+    
+    
+    ## Now the Volcano Plot ##
+    tagV <- paste0("Volcano_", contrastVec[i])
+    
+    VplotList[[tagV]] <- makeVolcanoPlot(
+        dfPlotData,
+        geneIDcolumn,
+        topNgenes = 5,
+        dotsize = 1,
+        legendDotSize = 5,
+        sdCutOff = sdCutOff
+    )
+    
+    ###########################################################################
+    ## Save plot to file                                                     ##
+    FNbase <- paste0(contrastVec[i], ".Volcano.plot", VersionPdfExt)
+    FN <- paste0(figDir, FNbase)
+    FNrel <- paste0("report_figures/", FNbase)
+    
+    pdf(FN)
+        print(VplotList[[tagV]])
+    dev.off()
+    ##                                                                       ##
+    ###########################################################################
+    
+    selLg10p <- selVec[grep("_lg10p_", names(dfPlotData))]
+    selLogFC <- selVec[grep("_logFC_", names(dfPlotData))]
+    
+   
+    xAxis <- selLogFC[grep(contrastVec[i], selLogFC)]
+    yAxis <- selLg10p[grep(contrastVec[i], selLg10p)]
+    
+    #link2 <- paste0('<a href="https://biologic.crick.ac.uk/',project_id,'/scatterplot?x_axis=',xAxis,'&y_axis=',yAxis,'&cat_id=ag_lab_categories__10" target="_blank">here</a>.')
+    
+    
+    figCap <- paste0(
+        '**Figure ',
+        figureCount,
+        'B:** Volcanoplot ',contrastVec[i],'. ',
+        'Download a pdf of this figure <a href="',FNrel,'" target = "_blank">here</a>. '
+    )
+ 
+    figureCount <- figureCount + 1
+   
+    NewChnk <- paste0(
+            "\n```{r V_",contrastVec[i],", results='asis', echo=F, eval=TRUE, warning=FALSE, fig.cap='",figCap,"'}\n",
+            "\n",
+            "\n print(VplotList[['",tagV,"']])",
+            "\n cat(  '\n')",
+            "\n\n\n```\n"   
+    )
+
+    chnkVec <- c(
+        chnkVec,
+        NewChnk
+    )
+}
+
+if (length(contrastVec) > 2){
+    tabVar <- ".tabset .tabset-fade .tabset-dropdown"
+} else {
+    tabVar <- ".tabset .tabset-fade .tabset-pills"
+}
+
+```
+
+
+# Differential Gene Expression Analysis (DGE) {`r tabVar`}
+```{r, echo=FALSE, eval=TRUE, warning=FALSE, results="asis"}
+cat(paste(knitr::knit(text = chnkVec, quiet = T), collapse = '\n'))
+```

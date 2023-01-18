@@ -161,6 +161,13 @@ knitr::opts_chunk$set(
 ```{r child = '07-pca.analysis.Rmd', eval=TRUE}
 ```
 
+<!-- Heatmaps Analysis-------------------- ------------------------------------>
+```{r child = '12-heatmaps.Rmd', eval=TRUE}
+```
+
+<!-- Volcano plots-------------------- ---------------------------------------->
+```{r child = '13-volcanoplots.rna.plots.Rmd', eval=TRUE}
+```
 
 
 

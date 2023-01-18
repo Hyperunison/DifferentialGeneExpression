@@ -1,0 +1,427 @@
+<!-- Set PArameters Module -->
+<!-- Set the chnkPrefix to make all chunks unique in the overall folder -->
+```{r, echo=FALSE, eval=TRUE, warning=FALSE}
+chnkPrefix <- "B10.Heatmap."
+VersionPdfExt <- VersionPdfExt <- paste0(".",chnkPrefix,"V", gsub("-", "", Sys.Date()), ".pdf")
+```
+
+```{r, echo=FALSE, eval=TRUE, warning=FALSE, results=F}
+
+
+#DEseq2contrastTable <- Obio@databaseTable
+geneIDcolumn <- primaryAlignmentGeneID
+
+if (geneIDcolumn != "hgnc_symbol" | geneIDcolumn != "mgi_symbol"){
+    geneSelCol <- "hgnc_symbol"
+} else {
+    geneSelCol <- geneIDColumn
+}
+
+# Variables that need to exist
+# Ntop4pcaGeneSelection
+# project_id 
+# primaryAlignmentGeneID
+# figDir 
+# dfDesign 
+
+
+```
+
+
+```{r, echo=T, eval=TRUE, warning=FALSE, results=F}
+## Make heatmap gene list
+logFCselections <- names(DEseq2contrastTable)[grep("_logFC_", names(DEseq2contrastTable))]
+padjSelections <- gsub("_logFC_", "_padj_", logFCselections)
+dfSelections <- data.frame(logFCselections, padjSelections)
+dfSelections <- dfSelections[dfSelections[,"padjSelections"] %in% names(DEseq2contrastTable),]
+if (nrow(dfSelections) > 2){
+    tabVar <- ".tabset .tabset-fade .tabset-dropdown"
+} else {
+    tabVar <- ".tabset .tabset-fade .tabset-pills"
+}
+```
+
+
+```{r, echo=TRUE, eval=TRUE, warning=FALSE, results=F, message=F}
+## Make heatmap gene list
+logFCselections <- names(DEseq2contrastTable)[grep("_logFC_", names(DEseq2contrastTable))]
+padjSelections <- gsub("_logFC_", "_padj_", logFCselections)
+dfSelections <- data.frame(logFCselections, padjSelections)
+dfSelections <- dfSelections[dfSelections[,"padjSelections"] %in% names(DEseq2contrastTable),]
+
+###############################################################################
+## First heatmap: Most variable genes                                        ##
+HMplotList <- list()
+chnkVec <- as.vector(NULL, mode="character")
+
+geneIDcolumn <- primaryAlignmentGeneID
+
+
+# if (is.null(HmDisplayCatsFromDb)){
+    HmDisplayCatsFromDb <- list()
+# }
+    
+## Start with Nmost variable genes ##
+if (exists("Ntop4pcaGeneSelection") && !is.null(Ntop4pcaGeneSelection) | 
+    length(Ntop4pcaGeneSelection) > 3){
+    dfDataTable <- dfTPM
+    
+    geneVec <- as.vector(unique(dfDataTable[dfDataTable[,primaryAlignmentGeneID] %in% Ntop4pcaGeneSelection,primaryAlignmentGeneID]))
+} else {
+    geneVec <- unique(DEseq2contrastTable[DEseq2contrastTable$logFC_cut_off == 1, geneIDcolumn])
+    Ntop4pcaGeneSelection <- geneVec
+}
+cat.name <- paste0("Experiment_", project_id, "_",length(Ntop4pcaGeneSelection),"_most_variable_genes")
+cat.description.text <- paste0(
+    "In this gene set the ",
+    length(geneVec),
+    " most variable genes."
+)
+HmDisplayCatsFromDb[[cat.name]] <- list(
+      "cat_type" = paste0("temp_", project_id),
+      "data_source" = "Most variable heatmap genes" ,
+      "cat.description.text" = cat.description.text,
+      "geneVec" = geneVec,
+      "catID" = NULL,
+      "comparisonID" = NULL
+)
+###########################################################################
+## Make one heatmap per comparison                                       ##
+    
+numextract <- function(string){ 
+    stringr::str_extract(string, "contrast_\\-*\\d+\\.*\\d*_")
+} 
+
+dfSelections[["designColumn"]] <- sapply(dfSelections$padjSelections, function(x) unlist(strsplit(x, "padj_"))[2]) 
+
+## Get design column from model file ##
+designColNames <- sapply(dfSelections$padjSelections, function(x) unlist(strsplit(x, "padj_"))[2])
+
+modelComp <- as.vector(dfModel$comparison)
+designColNames[!(designColNames %in% modelComp)] <- ""
+
+dfModelSel <- dfModel[dfModel$comparison %in% designColNames,]
+
+dfSelections[["designColumn"]] <- ""
+
+    if (nrow(dfModelSel) > 0){
+    ## replace all entries found in dfModel to comparisonID
+    for (i in 1:nrow(dfModelSel)){
+        designColNames <- gsub(paste0("^", as.vector(dfModel[i, "comparison"]), "$"), as.vector(dfModel[i, "comparisonID"]),designColNames )
+    }
+    
+    dfSelections[["designColumn"]]  <-  designColNames 
+} 
+
+
+
+for (k in 1:nrow(dfSelections)){
+    dfDataTable <- DEseq2contrastTable
+    padjCutOff <- 0.05
+        
+    geneVec <- as.vector(
+        unique(
+            dfDataTable[dfDataTable[,as.vector(dfSelections$padjSelections[k])] < 0.05 & dfDataTable[,as.vector(dfSelections$logFCselections[k])] != 0,geneIDcolumn]
+            )
+    )
+        
+    if (length(geneVec) > 1500){
+        padjCutOff <- 0.01
+        
+        geneVec <- as.vector(
+            unique(
+                dfDataTable[dfDataTable[,as.vector(dfSelections$padjSelections[k])] < 0.01 & 
+                                    dfDataTable[,as.vector(dfSelections$logFCselections[k])] != 0,geneIDcolumn
+                ]
+            )
+        )
+    }
+        
+    ## Insert gene set into database ##
+    cat.name <- paste0(
+        "Experiment_",project_id, "_",dfSelections$padjSelections[k],"_smaller_than_", gsub("[.]", "_", padjCutOff)
+    )
+    
+    cat.description.text <- paste0(
+        "In this gene set the genes that exhibited an adjusted p value of less than ", 
+        padjCutOff, 
+        " in the differential gene expression comparsion ", 
+        as.vector(dfSelections$logFCselections[k]),
+        ". "
+      )
+        
+      comparisonID <- as.vector(dfSelections[k, "designColumn"])
+      if (comparisonID == ""){
+          comparisonID <- NULL
+      }
+    
+      HmDisplayCatsFromDb[[cat.name]] <- list(
+          "cat_type" = paste0("temp_", project_id),
+          "data_source" = "From experiment" ,
+          "cat.description.text" = cat.description.text,
+          "geneVec" = geneVec,
+          "catID" = NULL,
+          "comparisonID" = comparisonID
+      )
+            
+}
+## Done with making heatmap list                                         ##
+###########################################################################
+```
+
+
+
+```{r, echo=TRUE, eval=TRUE, warning=FALSE, results="asis"}
+## Create Heatmaps ##
+###############################################################################
+## Reorder Obio@parameterList$HmDisplayCatsFromDb so that 500 var is on top  ##
+pos <- grep("most_variable_genes", names(HmDisplayCatsFromDb))
+if (length(pos) > 0){
+  pos <- pos[1]
+  newOrder <- c(
+    names(HmDisplayCatsFromDb)[pos],
+    names(HmDisplayCatsFromDb)[-pos]
+  )
+  HmDisplayCatsFromDb <- HmDisplayCatsFromDb[newOrder]
+}
+##                                                                           ##
+###############################################################################
+## Begin heatmap plotting loop ##
+for (k in 1:length(HmDisplayCatsFromDb)){
+    
+    ## Select samples to display ##
+    if (!is.null(HmDisplayCatsFromDb[[k]]$comparisonID)){
+        dfSel <- unique(dfDesign[,c("sample.id", HmDisplayCatsFromDb[[k]]$comparisonID)])
+        dfSel <- dfSel[dfSel[,HmDisplayCatsFromDb[[k]]$comparisonID] != "",]
+        
+        if (nrow(dfSel) > 1){
+            sampleSelection <- paste0(unique(dfSel$sample.id))    
+        } else {
+            sampleSelection <- paste0(unique(dfDesign$sample.id))
+        }
+        
+    } else {
+        sampleSelection <- paste0(unique(dfDesign$sample.id))
+    }
+  
+    ## Check ##
+     
+    sampleSelection <- unique(names(dfData)[unlist(sapply(paste0("^", sampleSelection, "$"), function(x) grep(x, names(dfData))))])
+    selVec <- c(geneIDcolumn, sampleSelection )
+    ## Get gene selection 
+    geneSel <- HmDisplayCatsFromDb[[k]]$geneVec
+    
+    geneSel <- unique(geneSel)
+    geneSel <- geneSel[geneSel != ""]
+    
+    if (length(geneSel) > 2){
+        dfDataTable <- dfTPM
+        dfDataTable <- unique(dfDataTable[dfDataTable[, geneIDcolumn] %in% geneSel, selVec])
+        
+        dfHmBase <- unique(dfDataTable[,selVec])
+        
+        while (sum(duplicated(dfHmBase[, geneIDcolumn])) > 0){
+            dfHmBase[duplicated(dfHmBase[, geneIDcolumn]), geneIDcolumn] <- paste0(
+                dfHmBase[duplicated(dfHmBase[, geneIDcolumn]), 
+                geneIDcolumn], "_", i
+            )
+            i=i+1
+        }
+        
+        row.names(dfHmBase) <- dfHmBase[, geneIDcolumn]
+        dfHmBase[, geneIDcolumn] <- NULL
+        
+        ## calculate row-means ##
+        rowMeans <- apply(
+            dfHmBase,
+            1,
+            function(x) mean(x)
+        )
+            
+        rowMeans[rowMeans ==0] <- 0.001
+            
+        hmMax <- 4
+        for (i in 1:ncol(dfHmBase)){
+            dfHmBase[,i] <- log2(dfHmBase[,i] / rowMeans)
+        }
+            
+        dfHmBase[dfHmBase > hmMax] <- hmMax
+        dfHmBase[dfHmBase < -1*hmMax] <- -1*hmMax
+            
+            
+        names(dfHmBase) <- gsub("norm_counts_", "", names(dfHmBase))
+        names(dfHmBase) <- gsub("_TPM", "", names(dfHmBase))
+            
+        mHmBase <- data.matrix(dfHmBase)
+            
+        if ( nrow(mHmBase) < 51){
+            showRowNames <- TRUE
+        } else {
+            showRowNames <- FALSE
+        }
+        
+        ## Create heatmap plot ##
+        #library(ComplexHeatmap)
+       
+        f1 = circlize::colorRamp2(seq(-4, 4, length = 3), c("#3060cf", "#fffbbc","#c4463a"))    
+    
+        anno <- as.data.frame(colnames(mHmBase))
+        colnames(anno) <- "Sample"
+        anno$Group <- sapply(as.vector(anno[,1]), function(x) paste0(unlist(strsplit(x, "_"))[1], "_",unlist(strsplit(x, "_"))[2]))
+        
+        ## Color sample groups in line with the designated sample group color ##
+        #######################################################################
+        ## Add sample group colors if needed
+        pos <- grep("sample.group_color", names(dfDesign))
+        
+        if (length(pos) == 0){
+            sample.group <- unique(dfDesign$sample.group)
+            sample.group_color <- sample.group
+            #library(scales)
+            sample.group_color = scales::hue_pal()(length(sample.group_color))
+            #sample.group_color = c("#990000", "#009900")
+            dfGroupColors <- unique(data.frame(sample.group, sample.group_color))
+            dfDesign <- merge(dfDesign, dfGroupColors, by.x = "sample.group", "sample.group")
+            if (exists("Obio")){
+                Obio@dfDesign <- dfDesign
+            }
+            
+        }
+        
+        
+        
+        #library(scales)
+        #hue_pal()(2)
+        df <- unique(data.frame(dfDesign[,c("sample.id", "sample.group", "sample.group_color")]))
+        df <- df[df$sample.id %in% colnames(mHmBase),]
+        df2 <- data.frame(df[,"sample.group"])
+        names(df2) <- "Group"
+        
+                
+        GroupVec <- as.vector(unique(df$sample.group_color))
+        names(GroupVec) <- as.vector(unique(df$sample.group))
+        
+        
+        
+        #df2 <- unique(data.frame(Obio@dfDesign[,c("sample.id","sample.group", "sample.group_color")]))
+        #df2 <- data.frame(df2[,c("sample.group")])
+        
+        
+        
+        ha = ComplexHeatmap::HeatmapAnnotation(df = df2, col = list(Group = GroupVec))
+    
+        ComplexHeatmap::ht_opt(
+            legend_border = "black",
+            heatmap_border = TRUE,
+            annotation_border = TRUE
+        )
+        
+        hmTitle <- unlist(strsplit(names(HmDisplayCatsFromDb)[k], "_padj_"))
+        if (length(hmTitle) == 2){
+            hmTitle <- paste0("padj_", hmTitle[2])
+        } else {
+            hmTitle <- names(HmDisplayCatsFromDb)[k]
+        }
+        
+        HMplotList[[names(HmDisplayCatsFromDb)[k]]] = ComplexHeatmap::Heatmap(
+            mHmBase,
+            column_title = gsub(
+                    "_", 
+                    " ", 
+                    hmTitle
+            ),
+            name = paste0("HM_", k), 
+            #row_km = 5,
+            col = f1,
+           
+            show_column_names = T,
+            show_row_names = showRowNames,
+            border = TRUE,
+            
+            #Dendrogram configurations: columns
+            clustering_distance_columns="euclidean",
+            clustering_method_columns="complete",
+            column_dend_height=grid::unit(10,"mm"),
+            
+            #Dendrogram configurations: rows
+            clustering_distance_rows="euclidean",
+            clustering_method_rows="complete",
+            row_dend_width=grid::unit(10,"mm"),
+            top_annotation = ha,
+            show_heatmap_legend = TRUE
+            #row_title = NULL,
+            #show_row_dend = FALSE
+        ) 
+        
+    ComplexHeatmap::ht_opt(RESET = TRUE)
+        
+    if (! is.null(HmDisplayCatsFromDb[[k]]$cat_id)){
+        link <- paste0(
+            'An interactive version of this heatmap with an option for further filtering can be found <a href="',
+            "https://biologic.crick.ac.uk/",
+            project_id,"/category-view/",
+            HmDisplayCatsFromDb[[k]]$cat_id,'" target="_blank">here</a>.'
+        )
+        
+    } else {
+        link <- ""
+    }
+    
+    ###########################################################################
+    ## Save plot to file                                                     ##
+    FNbase <- paste0("Heatmap.", names(HmDisplayCatsFromDb)[k],VersionPdfExt)
+    FN <- paste0(figDir, FNbase)
+    FNrel <- paste0("report_figures/", FNbase)
+    
+    pdf(FN)
+        print(HMplotList[[names(HmDisplayCatsFromDb)[k]]])
+    dev.off()
+    ##                                                                       ##
+    ###########################################################################
+    
+    figCap <- paste0(
+    '**Figure ',
+    figureCount,
+    ':** Heatmap showing the gene category ', gsub('_', ' ', names(HmDisplayCatsFromDb)[k]), '. ',
+        'Download a pdf of this figure <a href="',FNrel,'" target="_blank">here</a>. ',
+        link
+    )
+    
+    figureCount <- figureCount + 1 
+    
+    NewChnk <- paste0(
+            "## HM_", names(HmDisplayCatsFromDb)[k],
+            "\n```{r, results='asis', echo=F, eval=TRUE, warning=FALSE, fig.cap='",figCap,"'}\n",
+            "\n",
+            "\n print(HMplotList[['",names(HmDisplayCatsFromDb)[k],"']])",
+            "\n cat(  '\n')",
+            "\n\n\n```\n"   
+    )
+    
+    chnkVec <- c(
+        chnkVec,
+        NewChnk
+    )
+    
+    } ## End making heatmap 
+    
+## Done making heatmaps                                                      ##
+###############################################################################
+}
+## End heatmap plotting loop
+## Done                                                                      ##
+###############################################################################
+if (length(HMplotList) > 2){
+    tabVar <- ".tabset .tabset-fade .tabset-dropdown"
+} else {
+    tabVar <- ".tabset .tabset-fade .tabset-pills"
+}
+
+```
+
+
+# Heatmaps {`r tabVar`}
+
+```{r, echo=FALSE, eval=TRUE, warning=FALSE, results="asis"}
+cat(paste(knitr::knit(text = chnkVec, quiet = T), collapse = '\n'))
+```
