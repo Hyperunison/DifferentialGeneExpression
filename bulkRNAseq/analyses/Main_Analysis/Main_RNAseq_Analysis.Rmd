@@ -166,7 +166,7 @@ knitr::opts_chunk$set(
 ```
 
 <!-- Volcano plots-------------------- ---------------------------------------->
-```{r child = '13-volcanoplots.rna.plots.Rmd', eval=TRUE}
+```{r child = '13-volcanoplots.ma.plots.Rmd', eval=TRUE}
 ```
 
 
