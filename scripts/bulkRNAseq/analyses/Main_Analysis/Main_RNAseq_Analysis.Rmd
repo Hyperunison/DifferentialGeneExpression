@@ -34,13 +34,13 @@ projectAuthor <- "John Doe"
 
 projectDir <- paste0(getwd(), "/")
 
-workdir <- paste0(projectDir, "workdir/")
+workdir <- paste0("../../../../workdir/")
 
 if (!dir.exists(workdir)){
     dir.create(workdir)
 }
 
-htmlDir <- paste0(projectDir, "html_local/")
+htmlDir <- paste0("../../../../outputs/html_local/")
 
 if (!dir.exists(htmlDir)){
     dir.create(htmlDir)

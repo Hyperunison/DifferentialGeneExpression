@@ -26,7 +26,7 @@ VersionPdfExt <- VersionPdfExt <- paste0(".",chnkPrefix,"V", gsub("-", "", Sys.D
 
 ## load relevant files
 # Design file
-FNdesign <- "design.table.tsv"
+FNdesign <- "../../../../data/design.table.tsv"
 
 dfDesign <- read.delim(
     file = FNdesign,
@@ -35,7 +35,7 @@ dfDesign <- read.delim(
 )
 
 # Model file
-FNmodel <- "model.table.tsv"
+FNmodel <- "../../../../data/model.table.tsv"
 
 dfModel <- read.delim(
     file = FNmodel,
@@ -44,7 +44,7 @@ dfModel <- read.delim(
 )
 
 # RSEM count file
-FNrsem <- "rsem.merged.gene_counts.tsv"
+FNrsem <- "../../../../data/rsem.merged.gene_counts.tsv"
 
 dfRSEM <- read.delim(
     file = FNrsem,
@@ -66,7 +66,7 @@ mRSEM <- data.matrix(
 )
 
 # TPM file
-FNtpm <- "rsem.merged.gene_tpm.tsv"
+FNtpm <- "../../../../data/rsem.merged.gene_tpm.tsv"
 
 dfTPM <- read.delim(
     file = FNtpm,
