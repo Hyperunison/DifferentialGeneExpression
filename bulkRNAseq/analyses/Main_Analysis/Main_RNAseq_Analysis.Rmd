@@ -21,14 +21,14 @@ always_allow_html: yes
 ###############################################################################
 ## Set project parameters                                                    ##
 
-project_id <- "GSE78220"
+project_id <- "PRJEB23709"
 primaryAlignmentGeneID <- "gene_id"
 NtopGenes <- 500
 
-projectTitle <- "Test RNA-Seq GSE78220"
-projectSubtitle <- "This is a test project"
+projectTitle <- "Test RNA-Seq PRJEB23709"
+projectSubtitle <- "Gide et al dataset"
 
-projectAbstract <- "Here we can write a project abstract."
+projectAbstract <- "ICBT mRNAseq analysis responder vs. non-responder"
 
 projectAuthor <- "John Doe"
 
