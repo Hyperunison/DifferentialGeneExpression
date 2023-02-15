@@ -1,0 +1,3 @@
+comparison	comparisonID	test	type	model	reducedModel	normalizeAllSamplesTogether	betaPrior
+R_vs_NR	comp_1	Wald	DGE	~ condition		FALSE	TRUE
+PD1_R_vs_PD1_NR	comp_2	Wald	DGE	~ condition		FALSE	TRUE

@@ -1,0 +1,3 @@
+cd ../scripts/bulkRNAseq/analyses/Main_Analysis
+R
+rmarkdown::render("Main_Analysis.html", output_dir="../../../../outputs/html_local")
